@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSG 랜더스 선수단 인적 프로필 & 이적/트레이드 정보</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter & Noto Sans KR Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ssgRed: '#CE0E2D',
+                        ssgRedDark: '#900A1F',
+                        ssgRedLight: '#FFF1F3',
+                        ssgGold: '#D4AF37',
+                        ssgGoldDark: '#997A15',
+                        ssgDark: '#1E293B',
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #F8FAFC;
+            color: #1E293B;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CE0E2D;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #900A1F;
+        }
+        /* Hide scrollbar for tabs */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased bg-slate-50 text-slate-800">
+
+    <!-- Header Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3 select-none">
+                <div class="w-12 h-12 bg-ssgRed rounded-2xl flex items-center justify-center font-black text-white text-xl shadow-md shadow-red-500/20 border border-red-600 transform hover:rotate-3 transition">
+                    SSG
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
+                        SSG LANDERS <span class="text-ssgRed text-xs sm:text-sm px-2.5 py-0.5 bg-red-50 border border-red-200 rounded-md font-bold">ROSTER & TRADE</span>
+                    </h1>
+                    <p class="text-xs text-slate-500">선수단 인적 프로필 · 학력 및 트레이드/이적 금액 조건 상세</p>
+                </div>
+            </div>
+
+            <!-- Header CSV Tools -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleCSVUpload(event)">
+                <button onclick="document.getElementById('csvFileInput').click()" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-slate-300 transition duration-150">
+                    <i class="fa-solid fa-file-csv text-ssgRed"></i>
+                    <span class="hidden sm:inline">CSV 업로드</span>
+                </button>
+                <button onclick="downloadCSV()" class="flex items-center gap-2 bg-ssgRed hover:bg-ssgRedDark active:scale-95 text-white text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-xl shadow-md shadow-red-500/20 transition duration-150">
+                    <i class="fa-solid fa-download"></i>
+                    <span class="hidden sm:inline">CSV 다운로드</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Top Status Banner -->
+        <div class="bg-gradient-to-r from-red-600 via-ssgRed to-ssgRedDark rounded-2xl p-5 sm:p-6 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg relative overflow-hidden">
+            <div class="space-y-1 z-10">
+                <div class="flex items-center gap-2 text-red-100 text-xs font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-baseball-bat-ball"></i> Official Roster & Trade Database
+                </div>
+                <h2 class="text-xl sm:text-2xl font-extrabold text-white">SSG 랜더스 정규 선수단 프로필</h2>
+                <p class="text-xs sm:text-sm text-red-100">출신 학교(초·중·고·대), 입단년도, FA 계약금 및 트레이드 대가·상대 선수 상세 정보입니다.</p>
+            </div>
+            
+            <div class="flex items-center gap-4 bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 text-xs sm:text-sm z-10 w-full md:w-auto justify-around sm:justify-start">
+                <div class="text-center sm:text-left">
+                    <span class="text-red-100 block text-[10px] font-semibold">총 등록 선수</span>
+                    <span id="totalPlayerCount" class="font-black text-white text-2xl">24</span><span class="text-xs text-red-100">명</span>
+                </div>
+                <div class="w-px h-8 bg-white/20"></div>
+                <div class="text-center sm:text-left">
+                    <span class="text-red-100 block text-[10px] font-semibold">원클럽맨</span>
+                    <span id="oneClubCount" class="font-black text-white text-2xl">18</span><span class="text-xs text-red-100">명</span>
+                </div>
+                <div class="w-px h-8 bg-white/20"></div>
+                <div class="text-center sm:text-left">
+                    <span class="text-amber-200 block text-[10px] font-semibold">이적 / 트레이드</span>
+                    <span id="transferredCount" class="font-black text-amber-300 text-2xl">6</span><span class="text-xs text-red-100">명</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Card Grid -->
+        <section id="playerGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Cards populated via JS -->
+        </section>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <i class="fa-solid fa-baseball-bat-ball text-5xl text-slate-300 mb-3"></i>
+            <p class="text-slate-700 font-bold">등록된 선수가 없습니다.</p>
+        </div>
+
+    </main>
+
+    <!-- Player Detail Modal -->
+    <div id="playerModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl transform transition-all relative max-h-[90vh] flex flex-col">
+            
+            <!-- Modal Header / Banner -->
+            <div class="bg-gradient-to-r from-red-700 via-ssgRed to-ssgRedDark p-6 text-white relative">
+                <button onclick="closeModal()" class="absolute top-4 right-4 w-9 h-9 bg-black/20 hover:bg-black/40 rounded-full flex items-center justify-center text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+                
+                <div class="flex items-center space-x-5">
+                    <div id="modalNumberBadge" class="w-16 h-16 sm:w-20 sm:h-20 bg-white/10 backdrop-blur-md border-2 border-white/40 rounded-2xl flex flex-col items-center justify-center font-black text-white shadow-lg flex-shrink-0">
+                        <span class="text-[10px] uppercase text-red-100">NO.</span>
+                        <span id="modalNumber" class="text-2xl sm:text-3xl tracking-tighter">14</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="modalTeamTag" class="text-xs font-bold px-2.5 py-0.5 bg-black/30 text-amber-300 rounded-full border border-amber-300/40">SSG LANDERS</span>
+                            <span id="modalPosTag" class="text-xs font-semibold px-2 py-0.5 bg-white/20 text-white rounded">내야수</span>
+                            <span id="modalTypeTag" class="text-xs font-bold px-2 py-0.5 bg-amber-400 text-slate-900 rounded">이적/트레이드</span>
+                        </div>
+                        <h3 id="modalName" class="text-2xl sm:text-3xl font-black tracking-tight">최정</h3>
+                        <p id="modalAge" class="text-xs sm:text-sm text-red-100 mt-0.5">1987년 2월 28일 (만 37세)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Body Scrollable -->
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-700 flex-grow">
+                
+                <!-- Basic Attributes Grid -->
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-id-card text-ssgRed"></i> 기본 인적 정보
+                    </h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <span class="text-[11px] text-slate-400 block">투타 구분</span>
+                            <span id="modalBatStyle" class="font-bold text-slate-900">우투우타</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <span class="text-[11px] text-slate-400 block">생년월일</span>
+                            <span id="modalBirth" class="font-bold text-slate-900">1987.02.28</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
+                            <span class="text-[11px] text-slate-400 block">드래프트 / 입단</span>
+                            <span id="modalDraft" class="font-bold text-slate-900 text-xs sm:text-sm">2005 1차지명(SK)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Trade / Transfer & Money Info Box -->
+                <div id="modalTradeDetailBox" class="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center gap-2 text-amber-800 font-bold text-xs uppercase tracking-wide">
+                        <i class="fa-solid fa-handshake text-amber-600"></i> 이적 / 트레이드 및 조건 상세 정보
+                    </div>
+                    <div class="space-y-1.5 text-xs text-slate-800">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-2.5 rounded-lg border border-amber-200/80 gap-1">
+                            <span class="font-bold text-amber-900"><i class="fa-solid fa-arrows-rotate text-ssgRed mr-1"></i> 트레이드 상대 / 조건:</span>
+                            <span id="modalTradeCounterpart" class="font-semibold text-slate-800">kt 투수 오원석 ↔ SSG 투수 김민 (1:1 맞트레이드)</span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-2.5 rounded-lg border border-amber-200/80 gap-1">
+                            <span class="font-bold text-amber-900"><i class="fa-solid fa-coins text-amber-600 mr-1"></i> 계약 금액 / 현금 대가:</span>
+                            <span id="modalTradeAmount" class="font-semibold text-slate-800">현금 2억 5,000만원 + 2025 3R 지명권</span>
+                        </div>
+                        <div class="bg-white p-2.5 rounded-lg border border-amber-200/80 text-xs text-slate-600 leading-relaxed" id="modalTradeNote">
+                            상세 이적 비고 및 상황 설명
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schools Roadmap -->
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-graduation-cap text-ssgRed"></i> 출신 학교 (학력 로드맵)
+                    </h4>
+                    <div id="modalSchoolsContainer" class="flex flex-wrap items-center gap-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                        <!-- School tags inserted here -->
+                    </div>
+                </div>
+
+                <!-- Career & Transfer Timeline -->
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-timeline text-ssgRed"></i> 히스토리 타임라인
+                    </h4>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <div id="modalHistoryTimeline" class="space-y-3">
+                            <!-- Timeline steps -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button onclick="closeModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-sm">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-auto">
+        <p>© 2026 SSG LANDERS Fan Profile & Trade Dashboard. 모든 이적/트레이드 및 계약 정보는 공식 발표 기준입니다.</p>
+    </footer>
+
+    <script>
+        // SSG Landers Roster Data ordered strictly by Uniform Number (Ascending)
+        const DEFAULT_PLAYERS = [
+            { 
+                name: "김민", team: "SSG", number: "1", position: "투수", birth: "1999.04.14", style: "우투우타", schools: "관산초-평촌중-유신고", draft: "2018 1차지명(kt)", 
+                history: "2018 kt 입단 > 2024.10 SSG (트레이드)",
+                tradeCounterpart: "SSG 투수 오원석 ↔ kt 투수 김민 (1:1 맞트레이드)",
+                tradeAmount: "선수 간 1:1 직교환 (추가 현금 없음)",
+                tradeNote: "2024년 10월 31일 SSG의 좌완 선발 오원석과 kt의 우완 불펜 김민 간의 맞트레이드가 단행됨. SSG는 강력한 불펜 구위 보강 목적."
+            },
+            { 
+                name: "박성한", team: "SSG", number: "2", position: "내야수", birth: "1998.03.30", style: "우투좌타", schools: "순천북초-순천이수중-효천고", draft: "2017 2차 2라운드(SK)", 
+                history: "2017 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "2025 연봉 약 3억원대 (주전 유격수)",
+                tradeNote: "SSG 주전 유격수이자 대표팀 내야수로 활약 중인 원클럽맨 핵심 자원."
+            },
+            { 
+                name: "정준재", team: "SSG", number: "3", position: "내야수", birth: "2003.01.03", style: "우투좌타", schools: "상인천초-동인천중-강릉고-동국대", draft: "2024 5라운드(SSG)", 
+                history: "2024 SSG 입단 (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 6,000만원",
+                tradeNote: "2024년 신인 드래프트 지명 후 빠른 발과 매서운 타격으로 주목받는 신예 내야수."
+            },
+            { 
+                name: "안상현", team: "SSG", number: "10", position: "내야수", birth: "1997.10.14", style: "우투우타", schools: "의왕부곡초-평촌중-용마고", draft: "2016 2차 3라운드(SK)", 
+                history: "2016 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "정규 연봉 계약 대상자",
+                tradeNote: "내야 백업 및 대주자/대수비 자원으로 헌신하는 프랜차이즈 내야수."
+            },
+            { 
+                name: "최정", team: "SSG", number: "14", position: "내야수", birth: "1987.02.28", style: "우투우타", schools: "대호초-평촌중-유신고", draft: "2005 1차지명(SK)", 
+                history: "2005 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨 / FA 3회 연속 체결)",
+                tradeAmount: "2025~2028년 4년 총액 110억원 (전액 보장)",
+                tradeNote: "2005년 SK 와이번스 입단 이후 단 한 번도 팀을 옮기지 않은 프랜차이즈 스타. KBO 통산 최다 홈런 대기록 보유자."
+            },
+            { 
+                name: "고명준", team: "SSG", number: "18", position: "내야수", birth: "2002.07.08", style: "우투우타", schools: "서석초-무등중-세광고", draft: "2021 2차 2라운드(SK)", 
+                history: "2021 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 9,000만원",
+                tradeNote: "차세대 SSG 1루수 및 중심 타자로 성장 중인 거포 유망주."
+            },
+            { 
+                name: "조병현", team: "SSG", number: "19", position: "투수", birth: "2002.05.08", style: "우투우타", schools: "온양온천초-온양중-세광고", draft: "2021 2차 3라운드(SK)", 
+                history: "2021 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 7,000만원",
+                tradeNote: "SSG의 차세대 마무리 투수로 정착한 150km/h 강속구 우완 구원 투수."
+            },
+            { 
+                name: "조형우", team: "SSG", number: "20", position: "포수", birth: "2002.04.04", style: "우투우타", schools: "무등초-무등중-광주일고", draft: "2021 2차 1라운드(SK)", 
+                history: "2021 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 1억 6,000만원",
+                tradeNote: "강력한 어깨를 바탕으로 한 SSG 차세대 주전 포수 자원."
+            },
+            { 
+                name: "서진용", team: "SSG", number: "22", position: "투수", birth: "1992.10.02", style: "우투우타", schools: "남부초-경남중-경남고", draft: "2011 1라운드(SK)", 
+                history: "2011 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "2023 구원왕 달성 / 연봉 3억 5,000만원",
+                tradeNote: "2023시즌 42세이브를 기록하며 KBO 구원왕을 차지한 SSG 프랜차이즈 불펜의 핵심."
+            },
+            { 
+                name: "전영준", team: "SSG", number: "28", position: "투수", birth: "2002.04.03", style: "우투우타", schools: "의왕부곡초-휘문중-대구고", draft: "2022 2차 9라운드(SSG)", 
+                history: "2022 SSG 입단 (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 3,000만원",
+                tradeNote: "묵직한 구위를 가진 우완 투수로 불펜 승부조 유망주."
+            },
+            { 
+                name: "김광현", team: "SSG", number: "29", position: "투수", birth: "1988.07.22", style: "좌투좌타", schools: "가동초-신천중-안산공고", draft: "2007 1차지명(SK)", 
+                history: "2007 SK 입단 > 2020 MLB 세인트루이스 > 2022 SSG 복귀",
+                tradeCounterpart: "해당 없음 (MLB 복귀 / 비FA 다년계약)",
+                tradeAmount: "2022~2025 4년 총액 151억원 (KBO 최고 수준 계약)",
+                tradeNote: "SSG 랜더스의 상징이자 KBO 리그를 대표하는 에이스 투수."
+            },
+            { 
+                name: "최민준", team: "SSG", number: "30", position: "투수", birth: "1999.06.03", style: "우투우타", schools: "수영초-대천중-경남고", draft: "2018 2차 2라운드(SK)", 
+                history: "2018 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 1억원",
+                tradeNote: "선발과 불펜을 모두 소화할 수 있는 마당쇠 스타일의 전천후 투수."
+            },
+            { 
+                name: "김성욱", team: "SSG", number: "31", position: "외야수", birth: "1993.05.01", style: "우투우타", schools: "광주수창초-무등중-진흥고", draft: "2012 3라운드(NC)", 
+                history: "2012 NC 입단 > 2025.06 SSG (트레이드)",
+                tradeCounterpart: "NC 외야수 김성욱 ↔ SSG 2026년 4라운드 신인 지명권",
+                tradeAmount: "현금 5,000만원 + 2026년 4라운드 지명권",
+                tradeNote: "2025년 6월 7일 외야 수비 및 장타력 보강을 위해 SSG가 NC에 현금 5,000만원과 2026년 신인 드래프트 4라운드 지명권을 내주고 영입함."
+            },
+            { 
+                name: "김재환", team: "SSG", number: "32", position: "외야수", birth: "1988.09.22", style: "우투좌타", schools: "상인천초-상인천중-인천고", draft: "2008 2차 1라운드(두산)", 
+                history: "2008 두산 입단 > 2025.12 SSG (FA 이적)",
+                tradeCounterpart: "두산 베어스 → SSG 랜더스 (FA 자유계약 이적)",
+                tradeAmount: "2년 총액 22억원 (계약금 6억원, 연봉 10억원, 옵션 6억원)",
+                tradeNote: "2025년 12월 FA 자격을 얻고 고향 팀인 인천 SSG 랜더스와 2년 22억원에 계약하여 이적함."
+            },
+            { 
+                name: "한유섬", team: "SSG", number: "35", position: "외야수", birth: "1989.08.09", style: "우투좌타", schools: "대연초-부산중-경남고-경성대", draft: "2012 9라운드(SK)", 
+                history: "2012 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "5년 총액 60억원 (다년 계약 체결)",
+                tradeNote: "팀의 핵심 클린업 타자이자 주장 출신의 상징적인 외야수."
+            },
+            { 
+                name: "노경은", team: "SSG", number: "38", position: "투수", birth: "1984.03.11", style: "우투우타", schools: "화곡초-성남중-성남고", draft: "2003 1차지명(두산)", 
+                history: "2003 두산 입단 > 2016 롯데 > 2021 SSG (테스트/자유계약)",
+                tradeCounterpart: "롯데 자이언츠 방출 후 SSG 랜더스 입단 테스트 거쳐 영입",
+                tradeAmount: "2022년 입단 시 연봉 1억원 → 2024.11 FA 재계약 2+1년 최대 25억원 (계약금 3억, 연봉 13억, 옵션 9억)",
+                tradeNote: "롯데에서 방출된 후 2021년 11월 SSG 테스트를 거쳐 1억원에 계약. 이후 홀드왕을 차지하며 2+1년 25억원 대형 FA 계약에 성공한 역전의 주인공."
+            },
+            { 
+                name: "김건우", team: "SSG", number: "39", position: "투수", birth: "2002.07.12", style: "좌투좌타", schools: "도화초-동산중-동산고", draft: "2021 1차지명(SK)", 
+                history: "2021 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 2억원",
+                tradeNote: "인천 동산고 출신 1차 지명 좌완 유망주 투수."
+            },
+            { 
+                name: "김민준", team: "SSG", number: "40", position: "투수", birth: "2006.04.10", style: "우투우타", schools: "봉황초-포항중-대구고", draft: "2025 3라운드(SSG)", 
+                history: "2025 SSG 입단 (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 8,000만원",
+                tradeNote: "2025 신인 드래프트 상위 라운더 신인 투수."
+            },
+            { 
+                name: "문승원", team: "SSG", number: "42", position: "투수", birth: "1989.11.28", style: "우투우타", schools: "가동초-배명중-배명고-고려대", draft: "2012 8라운드(SK)", 
+                history: "2012 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "5년 총액 55억원 (비FA 다년계약)",
+                tradeNote: "SSG 선발 및 마무리를 고루 소화해낸 프랜차이즈 우완 투수."
+            },
+            { 
+                name: "전의산", team: "SSG", number: "47", position: "내야수", birth: "2000.11.20", style: "우투좌타", schools: "무등초-무등중-경남고", draft: "2020 2차 1라운드(SK)", 
+                history: "2020 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 1억 2,000만원",
+                tradeNote: "강력한 파워를 가진 좌타 거포 자원."
+            },
+            { 
+                name: "박종훈", team: "SSG", number: "50", position: "투수", birth: "1991.03.12", style: "우투언더", schools: "군산신풍초-군산중-군산상고", draft: "2010 2차 2라운드(SK)", 
+                history: "2010 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "5년 총액 65억원 (비FA 다년계약)",
+                tradeNote: "KBO 리그에서 가장 낮은 수몰 마운드 출시지점을 가진 희귀 언더핸드 선발 투수."
+            },
+            { 
+                name: "최지훈", team: "SSG", number: "54", position: "외야수", birth: "1997.07.23", style: "우투좌타", schools: "무등초-무등중-광주일고-동국대", draft: "2020 2차 3라운드(SK)", 
+                history: "2020 SK 입단 > SSG (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "2025 연봉 약 3억원대",
+                tradeNote: "'아기 짐승'이라는 별명과 함께 최고의 중견수 수비 범위를 자랑하는 원클럽맨 외야수."
+            },
+            { 
+                name: "이지영", team: "SSG", number: "56", position: "포수", birth: "1986.02.27", style: "우투우타", schools: "인천서흥초-동산중-제물포고-성균관대", draft: "2008 육성선수(삼성)", 
+                history: "2008 삼성 입단 > 2019 키움 > 2024 SSG (사인 앤 트레이드)",
+                tradeCounterpart: "키움 히어로즈 ↔ SSG 랜더스",
+                tradeAmount: "FA 계약 2년 총액 4억원 (연봉 3.5억, 옵션 0.5억) + 트레이드 대가: 현금 2억 5,000만원 및 2025년 3라운드 지명권",
+                tradeNote: "키움과 FA 계약 체결 직후 SSG로 사인 앤 트레이드됨. SSG는 베테랑 포수진 보강을 위해 현금 2.5억원과 신인 지명권을 건넸음."
+            },
+            { 
+                name: "이로운", team: "SSG", number: "92", position: "투수", birth: "2004.09.11", style: "우투우타", schools: "본리초-경복중-대구고", draft: "2023 1라운드(SSG)", 
+                history: "2023 SSG 입단 (원클럽맨)",
+                tradeCounterpart: "해당 없음 (원클럽맨)",
+                tradeAmount: "입단 계약금 2억 5,000만원",
+                tradeNote: "150km/h 오버의 속구를 던지는 1라운드 출신 신예 불펜 에이스."
+            }
+        ];
+
+        let playersData = [...DEFAULT_PLAYERS];
+
+        window.onload = function() {
+            updateCounts();
+            renderCards(playersData);
+        };
+
+        // Calculate counts
+        function updateCounts() {
+            document.getElementById('totalPlayerCount').textContent = playersData.length;
+            const oneClub = playersData.filter(p => isOneClubPlayer(p)).length;
+            document.getElementById('oneClubCount').textContent = oneClub;
+            document.getElementById('transferredCount').textContent = playersData.length - oneClub;
+        }
+
+        function isOneClubPlayer(p) {
+            return p.history && p.history.includes('원클럽맨');
+        }
+
+        // Render Player Cards
+        function renderCards(list) {
+            const grid = document.getElementById('playerGrid');
+            const empty = document.getElementById('emptyState');
+            grid.innerHTML = '';
+
+            if (list.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            } else {
+                empty.classList.add('hidden');
+            }
+
+            list.forEach(p => {
+                const card = document.createElement('div');
+                const isOneClub = isOneClubPlayer(p);
+
+                card.className = "bg-white rounded-2xl border border-slate-200 p-5 hover:border-ssgRed hover:shadow-lg transition cursor-pointer hover:-translate-y-1 group relative flex flex-col justify-between shadow-sm";
+                card.onclick = () => openModal(p);
+
+                card.innerHTML = `
+                    <div>
+                        <!-- Top Row: Number & Transfer Badge -->
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-bold px-2.5 py-1 bg-slate-100 text-ssgRed border border-slate-200 rounded-lg group-hover:bg-ssgRed group-hover:text-white transition">
+                                NO. ${p.number}
+                            </span>
+                            <span class="text-[11px] font-bold px-2 py-0.5 ${isOneClub ? 'bg-red-50 text-ssgRed border border-red-200' : 'bg-amber-100 text-amber-800 border border-amber-300'} rounded">
+                                ${isOneClub ? '원클럽맨' : '이적 / 트레이드'}
+                            </span>
+                        </div>
+
+                        <!-- Player Main Info -->
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <h3 class="text-xl font-black text-slate-900 group-hover:text-ssgRed transition">${p.name}</h3>
+                            <span class="text-xs text-slate-500 font-semibold">${p.position}</span>
+                        </div>
+
+                        <p class="text-xs text-slate-400 mb-3 font-medium">${p.style} · ${p.birth}</p>
+
+                        <!-- Highlight Box for Transferred Players vs One-Club -->
+                        ${!isOneClub ? `
+                            <div class="text-xs bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-3 space-y-1 text-slate-800">
+                                <span class="text-[10px] text-amber-800 font-bold block flex items-center gap-1">
+                                    <i class="fa-solid fa-handshake"></i> 트레이드/이적 조건
+                                </span>
+                                <p class="font-bold text-slate-900 truncate">${p.tradeCounterpart || '-'}</p>
+                                <p class="text-[11px] text-amber-900 truncate font-semibold">${p.tradeAmount || '-'}</p>
+                            </div>
+                        ` : `
+                            <div class="text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200 mb-3 space-y-1">
+                                <span class="text-[10px] text-slate-400 block font-semibold">출신 학교</span>
+                                <p class="truncate font-medium text-slate-700">${p.schools ? p.schools.replace(/-/g, ' › ') : '-'}</p>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Bottom Transfer Tag -->
+                    <div class="mt-2 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span class="truncate max-w-[85%] text-slate-600">${p.history || '-'}</span>
+                        <i class="fa-solid fa-chevron-right text-slate-400 group-hover:text-ssgRed transition"></i>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Calculate Age
+        function calculateAge(birthStr) {
+            if (!birthStr || birthStr.length < 4) return '';
+            const year = parseInt(birthStr.substring(0, 4));
+            const currentYear = new Date().getFullYear();
+            return `(만 ${currentYear - year}세)`;
+        }
+
+        // Modal Control
+        function openModal(player) {
+            document.getElementById('modalName').textContent = player.name;
+            document.getElementById('modalNumber').textContent = player.number;
+            document.getElementById('modalPosTag').textContent = player.position;
+            document.getElementById('modalBirth').textContent = player.birth;
+            document.getElementById('modalAge').textContent = `${player.birth} ${calculateAge(player.birth)}`;
+            document.getElementById('modalBatStyle').textContent = player.style;
+            document.getElementById('modalDraft').textContent = player.draft || '-';
+
+            const isOneClub = isOneClubPlayer(player);
+            const typeTag = document.getElementById('modalTypeTag');
+            const tradeBox = document.getElementById('modalTradeDetailBox');
+
+            if (!isOneClub) {
+                typeTag.textContent = "이적 / 트레이드";
+                typeTag.className = "text-xs font-bold px-2 py-0.5 bg-amber-400 text-slate-900 rounded";
+                tradeBox.classList.remove('hidden');
+
+                document.getElementById('modalTradeCounterpart').textContent = player.tradeCounterpart || '정보 없음';
+                document.getElementById('modalTradeAmount').textContent = player.tradeAmount || '정보 없음';
+                document.getElementById('modalTradeNote').textContent = player.tradeNote || '트레이드 세부 설명이 기록되어 있습니다.';
+            } else {
+                typeTag.textContent = "원클럽맨";
+                typeTag.className = "text-xs font-bold px-2 py-0.5 bg-red-100 text-ssgRed rounded";
+                
+                // Also display FA / Contract Info for One-Club players
+                tradeBox.classList.remove('hidden');
+                document.getElementById('modalTradeCounterpart').textContent = player.tradeCounterpart || '해당 없음 (원클럽맨)';
+                document.getElementById('modalTradeAmount').textContent = player.tradeAmount || '원클럽 연봉 계약';
+                document.getElementById('modalTradeNote').textContent = player.tradeNote || 'SSG 프랜차이즈 선수입니다.';
+            }
+
+            // Schools Tags
+            const schoolsContainer = document.getElementById('modalSchoolsContainer');
+            schoolsContainer.innerHTML = '';
+            if (player.schools) {
+                const schoolList = player.schools.split('-');
+                schoolList.forEach((s, idx) => {
+                    const tag = document.createElement('span');
+                    tag.className = "px-3 py-1 bg-white text-slate-800 rounded-lg text-xs font-semibold border border-slate-200 flex items-center gap-1.5 shadow-sm";
+                    tag.innerHTML = `<i class="fa-solid fa-school text-ssgRed text-[10px]"></i> ${s.trim()}`;
+                    schoolsContainer.appendChild(tag);
+
+                    if (idx < schoolList.length - 1) {
+                        const arrow = document.createElement('span');
+                        arrow.className = "text-slate-400 text-xs font-bold";
+                        arrow.textContent = "➔";
+                        schoolsContainer.appendChild(arrow);
+                    }
+                });
+            }
+
+            // History Timeline
+            const historyContainer = document.getElementById('modalHistoryTimeline');
+            historyContainer.innerHTML = '';
+            if (player.history) {
+                const steps = player.history.split('>');
+                steps.forEach((step, idx) => {
+                    const stepText = step.trim();
+                    const item = document.createElement('div');
+                    item.className = "flex items-start gap-3 relative";
+
+                    const isLast = idx === steps.length - 1;
+                    const iconBg = isLast ? 'bg-ssgRed text-white border-red-500' : 'bg-slate-200 text-slate-600 border-slate-300';
+
+                    item.innerHTML = `
+                        <div class="w-7 h-7 rounded-full ${iconBg} border flex items-center justify-center text-xs font-bold flex-shrink-0 z-10 shadow-sm">
+                            ${idx + 1}
+                        </div>
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 flex-grow shadow-sm">
+                            <span class="text-xs font-bold text-slate-900">${stepText}</span>
+                        </div>
+                    `;
+                    historyContainer.appendChild(item);
+                });
+            }
+
+            document.getElementById('playerModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('playerModal').classList.add('hidden');
+        }
+
+        // CSV Upload Handler
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSV(text);
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r\n|\n/);
+            if (lines.length < 2) return;
+
+            const newPlayers = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                if (cols.length >= 4) {
+                    newPlayers.push({
+                        name: cols[0] || '',
+                        team: cols[1] || 'SSG',
+                        number: cols[2] || '',
+                        position: cols[3] || '',
+                        birth: cols[4] || '',
+                        style: cols[5] || '',
+                        schools: cols[6] || '',
+                        draft: cols[7] || '',
+                        history: cols[8] || '',
+                        tradeCounterpart: cols[9] || '해당 없음',
+                        tradeAmount: cols[10] || '-',
+                        tradeNote: cols[11] || ''
+                    });
+                }
+            }
+
+            if (newPlayers.length > 0) {
+                // Sort by number ascending on upload
+                newPlayers.sort((a, b) => parseInt(a.number, 10) - parseInt(b.number, 10));
+                playersData = newPlayers;
+                updateCounts();
+                renderCards(playersData);
+            }
+        }
+
+        // CSV Download Handler
+        function downloadCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "이름,소속팀,등번호,포지션,생년월일,투타,출신학교,입단정보,이적히스토리,트레이드상대선수,계약금액/이적대가,상세비고\n";
+
+            playersData.forEach(p => {
+                const row = [
+                    `"${p.name}"`,
+                    `"${p.team}"`,
+                    `"${p.number}"`,
+                    `"${p.position}"`,
+                    `"${p.birth}"`,
+                    `"${p.style}"`,
+                    `"${p.schools}"`,
+                    `"${p.draft}"`,
+                    `"${p.history}"`,
+                    `"${p.tradeCounterpart || ''}"`,
+                    `"${p.tradeAmount || ''}"`,
+                    `"${p.tradeNote || ''}"`
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "ssg_landers_roster_trade_details.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
