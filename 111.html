@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KBO 6개 구단 선수단 로스터 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .bg-ssg-gradient { background: linear-gradient(135deg, #CE0E2D 0%, #A00A22 100%); }
+        .bg-kia-gradient { background: linear-gradient(135deg, #EA0029 0%, #A8001D 100%); }
+        .bg-samsung-gradient { background: linear-gradient(135deg, #074CA1 0%, #002C6C 100%); }
+        .bg-lg-gradient { background: linear-gradient(135deg, #C3002F 0%, #800020 100%); }
+        .bg-doosan-gradient { background: linear-gradient(135deg, #131230 0%, #08071A 100%); }
+        .bg-kt-gradient { background: linear-gradient(135deg, #231F20 0%, #000000 100%); }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-zinc-50 text-zinc-800 min-h-screen font-sans flex flex-col justify-between antialiased">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b border-zinc-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-zinc-950 text-white flex items-center justify-center font-black text-xl shadow">
+                    ⚾
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-tight text-zinc-900">KBO 프로야구 선수단 대시보드</h1>
+                    <p class="text-xs text-zinc-500 font-medium">6개 구단 공식 24인 정원 로스터 (총 144명)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="exportToCSV()" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition">
+                    <i class="fa-solid fa-download"></i>
+                    <span>CSV 내보내기</span>
+                </button>
+                <label class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 cursor-pointer transition">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>CSV 불러오기</span>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importFromCSV(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+        <!-- 구단 선택 슬라이더 탭 -->
+        <div class="relative mb-8">
+            <div class="flex space-x-2 overflow-x-auto no-scrollbar pb-2 pt-1 px-1" id="teamTabs"></div>
+        </div>
+
+        <!-- 구단 대표 배너 -->
+        <div id="teamBanner" class="mb-8 rounded-2xl p-6 text-white shadow-lg transition-all duration-300 relative overflow-hidden">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <span id="bannerSubtitle" class="text-xs font-extrabold uppercase tracking-widest opacity-90 px-2.5 py-1 rounded-full bg-black/30 border border-white/10 inline-block mb-2">SSG LANDERS</span>
+                    <h2 id="bannerTitle" class="text-3xl font-black tracking-tight">SSG 랜더스</h2>
+                    <p id="bannerDesc" class="text-sm opacity-90 mt-1">인천 SSG 랜더스필드 | KBO 리그 공식 선수단 (24명)</p>
+                </div>
+                <div class="flex items-center gap-4 bg-black/20 backdrop-blur-md rounded-xl p-3 border border-white/10 self-start md:self-auto">
+                    <div class="text-center px-3">
+                        <span class="block text-xs opacity-80 font-medium">등록 선수</span>
+                        <span id="playerCount" class="text-2xl font-black">24명</span>
+                    </div>
+                    <div class="w-px h-8 bg-white/20"></div>
+                    <div class="text-center px-3">
+                        <span class="block text-xs opacity-80 font-medium">정렬 기준</span>
+                        <span class="text-sm font-bold">등번호 순 (오름차순)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 선수 카드 그리드 -->
+        <div id="playerGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+    </main>
+
+    <!-- 선수 상세 정보 모달 -->
+    <div id="playerModal" class="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden transition-opacity duration-300">
+        <div class="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl transform transition-all border border-zinc-100">
+            <div id="modalHeader" class="p-6 text-white relative">
+                <button onclick="closeModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/35 hover:bg-black/50 flex items-center justify-center text-white transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="flex items-center gap-4">
+                    <div id="modalNumberBadge" class="w-16 h-16 rounded-2xl text-white font-black text-2xl flex items-center justify-center shadow-lg border border-white/30">
+                        0
+                    </div>
+                    <div>
+                        <span id="modalTeamName" class="text-xs font-bold uppercase tracking-wider opacity-90 block">SSG LANDERS</span>
+                        <h3 id="modalPlayerName" class="text-2xl font-black">선수명</h3>
+                        <span id="modalPosition" class="inline-block mt-1 px-2.5 py-0.5 rounded-md bg-white/20 text-xs font-semibold backdrop-blur-sm">포지션</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+                        <span class="text-xs text-zinc-400 font-medium block">신체 스펙</span>
+                        <span id="modalPhysical" class="font-bold text-zinc-800">-</span>
+                    </div>
+                    <div class="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+                        <span class="text-xs text-zinc-400 font-medium block">등번호</span>
+                        <span id="modalNumberDetail" class="font-bold text-zinc-800">No. 0</span>
+                    </div>
+                </div>
+
+                <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-100">
+                    <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">학력 (초-중-고-대)</h4>
+                    <p id="modalSchool" class="text-sm font-semibold text-zinc-800">-</p>
+                </div>
+
+                <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-100">
+                    <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">이적 조건 및 히스토리</h4>
+                    <p id="modalTransfer" class="text-xs text-zinc-700 leading-relaxed font-medium">-</p>
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="closeModal()" class="w-full py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-bold rounded-xl text-sm transition shadow-md">
+                        확인
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 하단 푸터 -->
+    <footer class="bg-white border-t border-zinc-200 py-6 text-center text-xs text-zinc-400 mt-12">
+        <p>© 2026 KBO Player Roster Dashboard. All rights reserved.</p>
+    </footer>
+
+    <!-- 애플리케이션 핵심 로직 -->
+    <script>
+        const TEAMS = {
+            SSG: {
+                id: 'SSG',
+                name: 'SSG 랜더스',
+                englishName: 'SSG LANDERS',
+                headerBgClass: 'bg-ssg-gradient',
+                badgeBg: 'bg-[#CE0E2D]',
+                accentColor: 'bg-red-600',
+                borderHoverClass: 'hover:border-red-500',
+                desc: '인천 SSG 랜더스필드 | KBO 리그 공식 선수단 (24명)'
+            },
+            KIA: {
+                id: 'KIA',
+                name: 'KIA 타이거즈',
+                englishName: 'KIA TIGERS',
+                headerBgClass: 'bg-kia-gradient',
+                badgeBg: 'bg-[#EA0029]',
+                accentColor: 'bg-red-700',
+                borderHoverClass: 'hover:border-red-600',
+                desc: '광주-기아 챔피언스 필드 | KBO 리그 공식 선수단 (24명)'
+            },
+            SAMSUNG: {
+                id: 'SAMSUNG',
+                name: '삼성 라이온즈',
+                englishName: 'SAMSUNG LIONS',
+                headerBgClass: 'bg-samsung-gradient',
+                badgeBg: 'bg-[#074CA1]',
+                accentColor: 'bg-blue-600',
+                borderHoverClass: 'hover:border-blue-500',
+                desc: '대구 삼성 라이온즈 파크 | KBO 리그 공식 선수단 (24명)'
+            },
+            LG: {
+                id: 'LG',
+                name: 'LG 트윈스',
+                englishName: 'LG TWINS',
+                headerBgClass: 'bg-lg-gradient',
+                badgeBg: 'bg-[#C3002F]',
+                accentColor: 'bg-rose-900',
+                borderHoverClass: 'hover:border-rose-800',
+                desc: '서울 잠실 야구장 | KBO 리그 공식 선수단 (24명)'
+            },
+            DOOSAN: {
+                id: 'DOOSAN',
+                name: '두산 베어스',
+                englishName: 'DOOSAN BEARS',
+                headerBgClass: 'bg-doosan-gradient',
+                badgeBg: 'bg-[#131230]',
+                accentColor: 'bg-slate-900',
+                borderHoverClass: 'hover:border-slate-700',
+                desc: '서울 잠실 야구장 | KBO 리그 공식 선수단 (24명)'
+            },
+            KT: {
+                id: 'KT',
+                name: 'kt 위즈',
+                englishName: 'KT WIZ',
+                headerBgClass: 'bg-kt-gradient',
+                badgeBg: 'bg-[#231F20]',
+                accentColor: 'bg-zinc-800',
+                borderHoverClass: 'hover:border-zinc-600',
+                desc: '수원 케이티 위즈 파크 | KBO 리그 공식 선수단 (24명)'
+            }
+        };
+
+        let rosters = {
+            SSG: [
+                { number: 1, name: "김민", position: "중계", height: "186cm", weight: "90kg", school: "평촌초 - 평촌중 - 유신고", transfer: "2025 트레이드 이적 (kt ➔ SSG / 오원석과 1:1 트레이드)" },
+                { number: 2, name: "박성한", position: "유격수", height: "180cm", weight: "75kg", school: "순천북초 - 순천매산중 - 효천고", transfer: "이적 없음 (원클럽맨 / 2017 2차 2라운드 지명)" },
+                { number: 3, name: "정준재", position: "2루수", height: "174cm", weight: "70kg", school: "강릉초 - 강릉중 - 강릉고 - 동국대", transfer: "이적 없음 (원클럽맨 / 2024 신인드래프트 5라운드 지명)" },
+                { number: 10, name: "안상현", position: "2루수", height: "178cm", weight: "73kg", school: "마산양덕초 - 마산동중 - 용마고", transfer: "이적 없음 (원클럽맨 / 2016 2차 3라운드 지명)" },
+                { number: 14, name: "최정", position: "3루수", height: "180cm", weight: "90kg", school: "대수초 - 평촌중 - 유신고", transfer: "이적 없음 (원클럽맨 / FA 재계약 4년 최대 110억원)" },
+                { number: 18, name: "고명준", position: "3루수", height: "185cm", weight: "94kg", school: "서화초 - 상인천중 - 세광고", transfer: "이적 없음 (원클럽맨 / 2021 2차 2라운드 지명)" },
+                { number: 19, name: "조병현", position: "마무리", height: "183cm", weight: "82kg", school: "수원신곡초 - 매향중 - 세광고", transfer: "이적 없음 (원클럽맨 / 2021 2차 3라운드 지명)" },
+                { number: 20, name: "조형우", position: "포수", height: "185cm", weight: "95kg", school: "무등초 - 무등중 - 광주진흥고", transfer: "이적 없음 (원클럽맨 / 2021 2차 1라운드 지명)" },
+                { number: 27, name: "에레디아", position: "좌익수", height: "178cm", weight: "88kg", school: "쿠바 출신", transfer: "이적 없음 (외국인 타자 계약)" },
+                { number: 28, name: "전영준", position: "중계", height: "188cm", weight: "92kg", school: "인천숭의초 - 동산중 - 흥사고", transfer: "이적 없음 (원클럽맨 / 2022 2차 9라운드 지명)" },
+                { number: 29, name: "김광현", position: "선발", height: "188cm", weight: "88kg", school: "덕성초 - 안산중 - 안산공고", transfer: "MLB 복귀 이적 (MLB 세인트루이스 ➔ SSG 4년 151억원)" },
+                { number: 31, name: "김성욱", position: "중견수", height: "183cm", weight: "85kg", school: "남부초 - 마산중 - 진흥고", transfer: "2025 FA 이적 (NC ➔ SSG)" },
+                { number: 32, name: "김재환", position: "지명타자", height: "183cm", weight: "90kg", school: "상인천초 - 상인천중 - 인천고", transfer: "2025 FA 이적 (두산 ➔ SSG 2+1년 20억원)" },
+                { number: 33, name: "아빌라", position: "선발", height: "191cm", weight: "95kg", school: "베네수엘라 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 35, name: "한유섬", position: "우익수", height: "190cm", weight: "105kg", school: "경남선동초 - 대천중 - 경남고 - 경성대", transfer: "이적 없음 (원클럽맨 / 비FA 다년계약 5년 60억원)" },
+                { number: 37, name: "오태곤", position: "1루수", height: "186cm", weight: "88kg", school: "청원초 - 청원중 - 청원고", transfer: "FA 이적 (kt ➔ SSG 4년 18억원 / 트레이드 포함)" },
+                { number: 38, name: "노경은", position: "중계", height: "181cm", weight: "88kg", school: "화곡초 - 성남중 - 성남고", transfer: "자유계약 이적 (두산 ➔ 롯데 ➔ SSG 방출후 입단)" },
+                { number: 39, name: "김건우", position: "중계", height: "185cm", weight: "86kg", school: "서화초 - 상인천중 - 덕수고", transfer: "이적 없음 (원클럽맨 / 2021 1차 지명)" },
+                { number: 40, name: "김민준", position: "유격수", height: "178cm", weight: "75kg", school: "서화초 - 동산중 - 북일고", transfer: "이적 없음 (원클럽맨 / 2023 7라운드 지명)" },
+                { number: 42, name: "문승원", position: "중계", height: "184cm", weight: "88kg", school: "LG유스 - 가동초 - 배명중 - 배명고 - 고려대", transfer: "이적 없음 (원클럽맨 / 비FA 다년계약 5년 55억원)" },
+                { number: 47, name: "전의산", position: "1루수", height: "188cm", weight: "100kg", school: "원동초 - 무등중 - 경남고", transfer: "이적 없음 (원클럽맨 / 2020 2차 1라운드 지명)" },
+                { number: 54, name: "최지훈", position: "중견수", height: "178cm", weight: "80kg", school: "수원신곡초 - 무등중 - 광주제일고 - 동국대", transfer: "이적 없음 (원클럽맨 / 2020 2차 3라운드 지명)" },
+                { number: 56, name: "이지영", position: "포수", height: "178cm", weight: "88kg", school: "인천서흥초 - 제물포중 - 제물포고 - 경성대", transfer: "사인앤트레이드 이적 (키움 ➔ SSG 2년 4억원)" },
+                { number: 92, name: "이로운", position: "중계", height: "184cm", weight: "98kg", school: "대구본리초 - 대구협성경복중 - 대구고", transfer: "이적 없음 (원클럽맨 / 2023 1라운드 지명)" }
+            ],
+            KIA: [
+                { number: 0, name: "곽도규", position: "중계", height: "182cm", weight: "85kg", school: "공주중학초 - 공주중 - 공주고", transfer: "이적 없음 (원클럽맨 / 2023 5라운드 지명)" },
+                { number: 1, name: "박정우", position: "중견수", height: "176cm", weight: "74kg", school: "덕성초 - 청주중 - 세광고", transfer: "이적 없음 (원클럽맨 / 2017 2차 7라운드 지명)" },
+                { number: 3, name: "김선빈", position: "2루수", height: "165cm", weight: "77kg", school: "화순초 - 화순중 - 화순고", transfer: "이적 없음 (원클럽맨 / FA 재계약 3년 30억원)" },
+                { number: 5, name: "김도영", position: "3루수", height: "182cm", weight: "85kg", school: "광주동초 - 무등중 - 광주동성고", transfer: "이적 없음 (원클럽맨 / 2022 1차 지명)" },
+                { number: 11, name: "조상우", position: "중계", height: "186cm", weight: "95kg", school: "인천서림초 - 동산중 - 대전고", transfer: "2025 트레이드 이적 (키움 ➔ KIA)" },
+                { number: 12, name: "정현창", position: "유격수", height: "181cm", weight: "76kg", school: "도신초 - 강남중 - 부산고", transfer: "이적 없음 (원클럽맨 / 2024 7라운드 지명)" },
+                { number: 14, name: "김규성", position: "2루수", height: "180cm", weight: "75kg", school: "선린초 - 선린중 - 덕수고", transfer: "이적 없음 (원클럽맨 / 2016 2차 7라운드 지명)" },
+                { number: 15, name: "박재현", position: "중중계", height: "185cm", weight: "82kg", school: "인천신풍초 - 동산중 - 인천고", transfer: "이적 없음 (원클럽맨 / 2024 10라운드 지명)" },
+                { number: 16, name: "윤도현", position: "3루수", height: "181cm", weight: "83kg", school: "광주학강초 - 무등중 - 광주진흥고", transfer: "이적 없음 (원클럽맨 / 2022 2차 2라운드 지명)" },
+                { number: 25, name: "한준수", position: "포수", height: "185cm", weight: "95kg", school: "서석초 - 무등중 - 광주동성고", transfer: "이적 없음 (원클럽맨 / 2018 1차 지명)" },
+                { number: 26, name: "해럴드 카스트로", position: "유격수", height: "183cm", weight: "86kg", school: "베네수엘라 출신", transfer: "이적 없음 (신규 외국인 타자 계약)" },
+                { number: 27, name: "김호령", position: "중견수", height: "182cm", weight: "83kg", school: "군산신풍초 - 자양중 - 경기고 - 동국대", transfer: "이적 없음 (원클럽맨 / 2015 2차 10라운드 지명)" },
+                { number: 33, name: "아담 올러", position: "선발", height: "193cm", weight: "102kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 36, name: "이호연", position: "1루수", height: "178cm", weight: "82kg", school: "광주수창초 - 무등중 - 광주진흥고 - 성균관대", transfer: "트레이드 이적 (롯데 ➔ KT ➔ KIA)" },
+                { number: 40, name: "제임스 네일", position: "선발", height: "193cm", weight: "88kg", school: "미국 출신", transfer: "이적 없음 (외국인 투수 재계약)" },
+                { number: 41, name: "황동하", position: "선발", height: "185cm", weight: "96kg", school: "인천숭의초 - 상인천중 - 인상고", transfer: "이적 없음 (원클럽맨 / 2022 2차 7라운드 지명)" },
+                { number: 42, name: "김태군", position: "포수", height: "182cm", weight: "92kg", school: "사당초 - 강남중 - 부산고", transfer: "트레이드 이적 (LG ➔ NC ➔ 삼성 ➔ KIA 3년 25억원)" },
+                { number: 44, name: "이태양", position: "중계", height: "192cm", weight: "97kg", school: "여수서초 - 여수중 - 순천효천고", transfer: "2025 FA 이적 (한화 ➔ KIA)" },
+                { number: 47, name: "나성범", position: "우익수", height: "183cm", weight: "100kg", school: "광주진흥초 - 무등중 - 광주진흥고 - 연세대", transfer: "FA 이적 (NC ➔ KIA 6년 150억원)" },
+                { number: 48, name: "이의리", position: "선발", height: "186cm", weight: "90kg", school: "광주수창초 - 무등중 - 광주일고", transfer: "이적 없음 (원클럽맨 / 2021 1차 지명)" },
+                { number: 51, name: "전상현", position: "중계", height: "182cm", weight: "87kg", school: "대구옥산초 - 경복중 - 상원고", transfer: "이적 없음 (원클럽맨 / 2016 2차 4라운드 지명)" },
+                { number: 54, name: "양현종", position: "선발", height: "183cm", weight: "91kg", school: "광주학강초 - 동성중 - 광주동성고", transfer: "MLB 복귀 이적 (텍사스 ➔ KIA FA 4년 103억원)" },
+                { number: 56, name: "오선우", position: "좌익수", height: "187cm", weight: "95kg", school: "인천서화초 - 동산중 - 야탑고 - 인하대", transfer: "이적 없음 (원클럽맨 / 2019 2차 5라운드 지명)" },
+                { number: 62, name: "정해영", position: "마무리", height: "189cm", weight: "96kg", school: "광주도산초 - 무등중 - 광주일고", transfer: "이적 없음 (원클럽맨 / 2020 1차 지명)" }
+            ],
+            SAMSUNG: [
+                { number: 0, name: "디아즈", position: "1루수", height: "188cm", weight: "105kg", school: "도미니카 공화국 출신", transfer: "이적 없음 (외국인 타자 재계약)" },
+                { number: 5, name: "구자욱", position: "좌익수", height: "189cm", weight: "82kg", school: "대구본리초 - 경복중 - 대구고", transfer: "이적 없음 (원클럽맨 / 비FA 다년계약 5년 120억원)" },
+                { number: 7, name: "이재현", position: "유격수", height: "180cm", weight: "81kg", school: "서울모란초 - 강남중 - 서울고", transfer: "이적 없음 (원클럽맨 / 2022 1차 지명)" },
+                { number: 11, name: "최지광", position: "중계", height: "176cm", weight: "82kg", school: "부산감천초 - 대천중 - 부산고", transfer: "이적 없음 (원클럽맨 / 2017 2차 1라운드 지명)" },
+                { number: 16, name: "류지혁", position: "2루수", height: "181cm", weight: "84kg", school: "청원초 - 청원중 - 충암고", transfer: "트레이드 이적 (두산 ➔ KIA ➔ 삼성 FA 재계약)" },
+                { number: 18, name: "원태인", position: "선발", height: "183cm", weight: "92kg", school: "대구율하초 - 경복중 - 경북고", transfer: "이적 없음 (원클럽맨 / 2019 1차 지명)" },
+                { number: 20, name: "최원태", position: "선발", height: "184cm", weight: "93kg", school: "서울가동초 - 휘문중 - 서울고", transfer: "2025 FA 이적 (키움 ➔ LG ➔ 삼성 4년 70억원)" },
+                { number: 26, name: "이승현", position: "선발", height: "183cm", weight: "94kg", school: "대구수성초 - 경복중 - 대구상원고", transfer: "이적 없음 (원클럽맨 / 2021 1차 지명)" },
+                { number: 27, name: "김태훈", position: "중계", height: "181cm", weight: "88kg", school: "군산신풍초 - 무등중 - 인상고", transfer: "트레이드 이적 (키움 ➔ 삼성)" },
+                { number: 29, name: "백정현", position: "선발", height: "184cm", weight: "85kg", school: "대구옥산초 - 경구중 - 상원고", transfer: "이적 없음 (원클럽맨 / FA 재계약 4년 38억원)" },
+                { number: 30, name: "김영웅", position: "3루수", height: "182cm", weight: "85kg", school: "공주중학초 - 무등중 - 물금고", transfer: "이적 없음 (원클럽맨 / 2022 2차 1라운드 지명)" },
+                { number: 32, name: "김헌곤", position: "우익수", height: "178cm", weight: "82kg", school: "대구옥산초 - 경북중 - 제주관광고 - 영남대", transfer: "이적 없음 (원클럽맨 / FA 재계약 2년 6억원)" },
+                { number: 34, name: "최형우", position: "지명타자", height: "180cm", weight: "100kg", school: "전주진북초 - 전주동중 - 전주고", transfer: "FA 이적 (삼성 ➔ KIA ➔ 삼성 복귀 2년 22억원)" },
+                { number: 39, name: "김성윤", position: "우익수", height: "163cm", weight: "62kg", school: "부산화명초 - 원동중 - 포항제철고", transfer: "이적 없음 (원클럽맨 / 2017 2차 4라운드 지명)" },
+                { number: 42, name: "양창섭", position: "선발", height: "182cm", weight: "88kg", school: "서울도신초 - 강남중 - 덕수고", transfer: "이적 없음 (원클럽맨 / 2018 2차 1라운드 지명)" },
+                { number: 46, name: "장승현", position: "포수", height: "182cm", weight: "86kg", school: "인천서화초 - 동산중 - 제물포고", transfer: "2025 FA 이적 (두산 ➔ 삼성)" },
+                { number: 47, name: "강민호", position: "포수", height: "185cm", weight: "102kg", school: "제주신풍초 - 포항제철중 - 포항제철공고", transfer: "FA 이적 (롯데 ➔ 삼성 4년 36억원)" },
+                { number: 52, name: "박세혁", position: "포수", height: "181cm", weight: "86kg", school: "서울수유초 - 신일중 - 신일고 - 고려대", transfer: "2025 트레이드 이적 (두산 ➔ NC ➔ 삼성)" },
+                { number: 55, name: "배찬승", position: "중계", height: "180cm", weight: "80kg", school: "대구옥산초 - 협성경복중 - 대구고", transfer: "이적 없음 (원클럽맨 / 2025 1라운드 지명)" },
+                { number: 58, name: "김지찬", position: "중견수", height: "163cm", weight: "64kg", school: "모가초 - 송탄중 - 라온고", transfer: "이적 없음 (원클럽맨 / 2020 2차 2라운드 지명)" },
+                { number: 61, name: "전병우", position: "3루수", height: "182cm", weight: "88kg", school: "동삼초 - 경남중 - 개성고 - 동아대", transfer: "2차 드래프트 이적 (롯데 ➔ 키움 ➔ 삼성)" },
+                { number: 62, name: "김재윤", position: "마무리", height: "184cm", weight: "92kg", school: "서울 도신초 - 휘문중 - 휘문고", transfer: "FA 이적 (kt ➔ 삼성 4년 58억원)" },
+                { number: 66, name: "박승규", position: "중견수", height: "177cm", weight: "80kg", school: "원동초 - 무등중 - 경기고", transfer: "이적 없음 (원클럽맨 / 2019 2차 9라운드 지명)" },
+                { number: 75, name: "후라도", position: "선발", height: "188cm", weight: "105kg", school: "파나마 출신", transfer: "2025 이적 (키움 ➔ 삼성 외국인 투수)" }
+            ],
+            LG: [
+                { number: 1, name: "임찬규", position: "선발", height: "186cm", weight: "84kg", school: "서울가동초 - 휘문중 - 가락고", transfer: "이적 없음 (원클럽맨 / FA 재계약 4년 50억원)" },
+                { number: 2, name: "문보경", position: "3루수", height: "182cm", weight: "89kg", school: "서울화곡초 - 덕수중 - 신송고", transfer: "이적 없음 (원클럽맨 / 2019 2차 3라운드 지명)" },
+                { number: 4, name: "신민재", position: "2루수", height: "171cm", weight: "67kg", school: "인천서화초 - 동산중 - 인천고", transfer: "2차 드래프트 이적 (두산 ➔ LG)" },
+                { number: 6, name: "구본혁", position: "유격수", height: "177cm", weight: "75kg", school: "서울중대초 - 잠실중 - 동산고 - 동의대", transfer: "이적 없음 (원클럽맨 / 2019 2차 6라운드 지명)" },
+                { number: 8, name: "문성주", position: "좌익수", height: "175cm", weight: "80kg", school: "포항제철초 - 포항제철중 - 영선고 - 강릉영동대", transfer: "이적 없음 (원클럽맨 / 2018 2차 10라운드 지명)" },
+                { number: 10, name: "오지환", position: "유격수", height: "186cm", weight: "85kg", school: "군산신풍초 - 자양중 - 경기고", transfer: "이적 없음 (원클럽맨 / FA 재계약 6년 124억원)" },
+                { number: 17, name: "박해민", position: "중견수", height: "182cm", weight: "75kg", school: "서울영중초 - 양천중 - 신일고 - 한양대", transfer: "FA 이적 (삼성 ➔ LG 4년 60억원)" },
+                { number: 20, name: "우강훈", position: "중계", height: "183cm", weight: "80kg", school: "수원신곡초 - 매향중 - 야탑고", transfer: "트레이드 이적 (롯데 ➔ LG)" },
+                { number: 21, name: "이우찬", position: "중계", height: "185cm", weight: "86kg", school: "충주성남초 - 세광중 - 광혜원고", transfer: "이적 없음 (원클럽맨 / 2011 1차 지명)" },
+                { number: 23, name: "오스틴", position: "1루수", height: "183cm", weight: "97kg", school: "미국 출신", transfer: "이적 없음 (외국인 타자 재계약)" },
+                { number: 27, name: "박동원", position: "포수", height: "179cm", weight: "92kg", school: "개봉초 - 양천중 - 개성고", transfer: "FA 이적 (키움 ➔ KIA ➔ LG 4년 65억원)" },
+                { number: 30, name: "톨허스트", position: "선발", height: "192cm", weight: "98kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 31, name: "이정용", position: "중계", height: "186cm", weight: "85kg", school: "서울성동초 - 영동중 - 성남고 - 동아대", transfer: "이적 없음 (원클럽맨 / 2019 1차 지명)" },
+                { number: 37, name: "김강률", position: "중계", height: "187cm", weight: "93kg", school: "서울청원초 - 청원중 - 경기고", transfer: "2025 FA 이적 (두산 ➔ LG)" },
+                { number: 45, name: "김진수", position: "중계", height: "185cm", weight: "88kg", school: "서울가동초 - 휘문중 - 중앙고", transfer: "이적 없음 (원클럽맨 / 2021 2차 2라운드 지명)" },
+                { number: 47, name: "김윤식", position: "선발", height: "181cm", weight: "82kg", school: "청주우암초 - 세광중 - 진흥고", transfer: "이적 없음 (원클럽맨 / 2020 2차 1라운드 지명)" },
+                { number: 50, name: "장현식", position: "중계", height: "183cm", weight: "90kg", school: "서울서울초 - 이수중 - 서울고", transfer: "2025 FA 이적 (NC ➔ KIA ➔ LG 4년 52억원)" },
+                { number: 51, name: "홍창기", position: "우익수", height: "189cm", weight: "94kg", school: "서울대모초 - 청원중 - 안산공고 - 건국대", transfer: "이적 없음 (원클럽맨 / 2016 2차 3라운드 지명)" },
+                { number: 55, name: "송찬의", position: "우익수", height: "183cm", weight: "87kg", school: "서울가동초 - 선린중 - 선린인터넷고", transfer: "이적 없음 (원클럽맨 / 2018 2차 7라운드 지명)" },
+                { number: 56, name: "문정빈", position: "1루수", height: "184cm", weight: "88kg", school: "서울도신초 - 강남중 - 서울고", transfer: "이적 없음 (원클럽맨 / 2022 2차 8라운드 지명)" },
+                { number: 58, name: "박시원", position: "중견수", height: "185cm", weight: "85kg", school: "인천서화초 - 동산중 - 광주일고", transfer: "2차 드래프트 이적 (NC ➔ LG)" },
+                { number: 59, name: "카라스코", position: "선발", height: "190cm", weight: "95kg", school: "베네수엘라 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 67, name: "김영우", position: "중계", height: "186cm", weight: "88kg", school: "서울모란초 - 강남중 - 서울고", transfer: "이적 없음 (원클럽맨 / 2025 1라운드 지명)" },
+                { number: 68, name: "케네디", position: "마무리", height: "188cm", weight: "90kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" }
+            ],
+            DOOSAN: [
+                { number: 1, name: "박치국", position: "중계", height: "177cm", weight: "78kg", school: "인천서화초 - 동산중 - 제물포고", transfer: "이적 없음 (원클럽맨 / 2017 2차 1라운드 지명)" },
+                { number: 2, name: "김민석", position: "좌익수", height: "185cm", weight: "83kg", school: "서울가동초 - 휘문중 - 휘문고", transfer: "2025 트레이드 이적 (롯데 ➔ 두산)" },
+                { number: 6, name: "오명진", position: "2루수", height: "178cm", weight: "76kg", school: "서울모란초 - 강남중 - 세광고", transfer: "이적 없음 (원클럽맨 / 2020 2차 6라운드 지명)" },
+                { number: 7, name: "박찬호", position: "유격수", height: "178cm", weight: "72kg", school: "서울가동초 - 휘문중 - 장충고", transfer: "2025 FA 이적 (KIA ➔ 두산)" },
+                { number: 13, name: "이유찬", position: "2루수", height: "173cm", weight: "70kg", school: "서울도신초 - 강남중 - 인천고", transfer: "이적 없음 (원클럽맨 / 2017 2차 5라운드 지명)" },
+                { number: 22, name: "김기연", position: "포수", height: "178cm", weight: "84kg", school: "광주진흥초 - 무등중 - 진흥고", transfer: "2차 드래프트 이적 (LG ➔ 두산)" },
+                { number: 23, name: "강승호", position: "2루수", height: "179cm", weight: "83kg", school: "전주진북초 - 무등중 - 북일고", transfer: "FA 보상선수 이적 (LG ➔ SK ➔ 두산)" },
+                { number: 25, name: "양의지", position: "포수", height: "179cm", weight: "95kg", school: "광주송정동초 - 무등중 - 진흥고", transfer: "FA 이적 (두산 ➔ NC ➔ 두산 복귀 4+2년 152억원)" },
+                { number: 27, name: "윤준호", position: "포수", height: "180cm", weight: "88kg", school: "부산화명초 - 대천중 - 경남고 - 동의대", transfer: "이적 없음 (원클럽맨 / 2023 5라운드 지명)" },
+                { number: 28, name: "최승용", position: "선발", height: "191cm", weight: "87kg", school: "서울모란초 - 강남중 - 소래고", transfer: "이적 없음 (원클럽맨 / 2021 2차 2라운드 지명)" },
+                { number: 29, name: "이병헌", position: "중계", height: "185cm", weight: "90kg", school: "서울가동초 - 영동중 - 서울고", transfer: "이적 없음 (원클럽맨 / 2022 1차 지명)" },
+                { number: 31, name: "정수빈", position: "중견수", height: "175cm", weight: "75kg", school: "수원신곡초 - 매향중 - 유신고", transfer: "이적 없음 (원클럽맨 / FA 재계약 6년 56억원)" },
+                { number: 36, name: "세베리노", position: "1루수", height: "186cm", weight: "95kg", school: "도미니카 공화국 출신", transfer: "이적 없음 (신규 외국인 타자 계약)" },
+                { number: 39, name: "잭로그", position: "선발", height: "188cm", weight: "90kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 45, name: "이용찬", position: "중계", height: "185cm", weight: "90kg", school: "서울학동초 - 경원중 - 장충고", transfer: "2025년 이적 (FA 2+1년 / NC ➔ 두산)" },
+                { number: 47, name: "곽빈", position: "선발", height: "187cm", weight: "95kg", school: "서울가동초 - 자양중 - 배명고", transfer: "이적 없음 (원클럽맨 / 2018 1차 지명)" },
+                { number: 48, name: "벤자민", position: "선발", height: "188cm", weight: "93kg", school: "미국 출신", transfer: "2025 이적 (kt ➔ 두산 외국인 투수)" },
+                { number: 50, name: "이영하", position: "마무리", height: "191cm", weight: "100kg", school: "서울모란초 - 강남중 - 선린인터넷고", transfer: "이적 없음 (원클럽맨 / 2016 1차 지명)" },
+                { number: 51, name: "조수행", position: "우익수", height: "178cm", weight: "75kg", school: "강릉초 - 강릉중 - 강릉고 - 건국대", transfer: "이적 없음 (원클럽맨 / 2016 2차 1라운드 지명)" },
+                { number: 52, name: "박준순", position: "2루수", height: "180cm", weight: "78kg", school: "서울가동초 - 휘문중 - 덕수고", transfer: "이적 없음 (원클럽맨 / 2025 1라운드 지명)" },
+                { number: 53, name: "양석환", position: "1루수", height: "185cm", weight: "90kg", school: "서울학동초 - 신일중 - 신일고 - 동국대", transfer: "FA 이적 (LG ➔ 두산 트레이드 후 FA 4+2년 78억원)" },
+                { number: 62, name: "안재석", position: "유격수", height: "185cm", weight: "80kg", school: "서울모란초 - 강남중 - 서울고", transfer: "이적 없음 (원클럽맨 / 2021 1차 지명)" },
+                { number: 63, name: "김택연", position: "중계", height: "184cm", weight: "88kg", school: "인천숭의초 - 상인천중 - 인천고", transfer: "이적 없음 (원클럽맨 / 2024 1라운드 지명)" },
+                { number: 68, name: "최민석", position: "중계", height: "182cm", weight: "80kg", school: "서울가동초 - 휘문중 - 덕수고", transfer: "이적 없음 (원클럽맨 / 2025 3라운드 지명)" }
+            ],
+            KT: [
+                { number: 1, name: "고영표", position: "선발", height: "187cm", weight: "88kg", school: "광주대성초 - 동성중 - 화순고 - 동아대", transfer: "이적 없음 (원클럽맨 / 비FA 다년계약 5년 107억원)" },
+                { number: 3, name: "최원준", position: "선발", height: "183cm", weight: "85kg", school: "서울가동초 - 휘문중 - 동국대", transfer: "2025 트레이드 이적 (두산 ➔ kt)" },
+                { number: 4, name: "오윤석", position: "2루수", height: "178cm", weight: "80kg", school: "서울모란초 - 화곡중 - 경기고 - 연세대", transfer: "트레이드 이적 (롯데 ➔ kt)" },
+                { number: 7, name: "김상수", position: "2루수", height: "175cm", weight: "75kg", school: "대구옥산초 - 경복중 - 경북고", transfer: "FA 이적 (삼성 ➔ 롯데 ➔ kt 4년 29억원)" },
+                { number: 10, name: "김현수", position: "좌익수", height: "188cm", weight: "100kg", school: "서울쌍문초 - 신상중 - 신일고", transfer: "2025 FA 이적 (두산 ➔ MLB ➔ LG ➔ kt)" },
+                { number: 13, name: "허경민", position: "3루수", height: "178cm", weight: "84kg", school: "광주송정동초 - 무등중 - 광주고", transfer: "2025 FA 이적 (두산 ➔ kt 4년 40억원)" },
+                { number: 21, name: "우규민", position: "중계", height: "180cm", weight: "80kg", school: "서울성동초 - 휘문중 - 휘문고", transfer: "2차 드래프트 이적 (LG ➔ 삼성 ➔ kt)" },
+                { number: 22, name: "장성우", position: "포수", height: "187cm", weight: "100kg", school: "부산감천초 - 대천중 - 용마고", transfer: "FA 이적 (롯데 ➔ kt 4년 42억원)" },
+                { number: 23, name: "안현민", position: "우익수", height: "182cm", weight: "88kg", school: "수원신곡초 - 매향중 - 마산고", transfer: "이적 없음 (원클럽맨 / 2022 2차 4라운드 지명)" },
+                { number: 24, name: "문상철", position: "1루수", height: "185cm", weight: "93kg", school: "서울모란초 - 강남중 - 배명고 - 고려대", transfer: "이적 없음 (원클럽맨 / FA 재계약)" },
+                { number: 26, name: "김민수", position: "중계", height: "183cm", weight: "85kg", school: "서울가동초 - 자양중 - 청원고 - 성균관대", transfer: "이적 없음 (원클럽맨 / 2015 위즈 특별지명)" },
+                { number: 27, name: "배정대", position: "중견수", height: "182cm", weight: "83kg", school: "서울도신초 - 강남중 - 성남고", transfer: "특별지명 이적 (LG ➔ kt)" },
+                { number: 30, name: "소형준", position: "선발", height: "189cm", weight: "92kg", school: "수원신곡초 - 매향중 - 유신고", transfer: "이적 없음 (원클럽맨 / 2020 1차 지명)" },
+                { number: 32, name: "맷 사우어", position: "선발", height: "193cm", weight: "98kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 33, name: "이정훈", position: "지명타자", height: "185cm", weight: "90kg", school: "광주서석초 - 무등중 - 휘문고 - 경희대", transfer: "자유계약 이적 (KIA ➔ 롯데 ➔ kt)" },
+                { number: 34, name: "샘 힐리어드", position: "중견수", height: "195cm", weight: "104kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 타자 계약)" },
+                { number: 38, name: "주권", position: "중계", height: "181cm", weight: "82kg", school: "청주우암초 - 충주성심중 - 청주고", transfer: "이적 없음 (원클럽맨 / FA 재계약 2+2년 16억원)" },
+                { number: 43, name: "로건", position: "선발", height: "190cm", weight: "95kg", school: "미국 출신", transfer: "이적 없음 (신규 외국인 투수 계약)" },
+                { number: 47, name: "오원석", position: "선발", height: "182cm", weight: "82kg", school: "수원신곡초 - 매향중 - 야탑고", transfer: "2025 트레이드 이적 (SSG ➔ kt / 김민과 1:1 트레이드)" },
+                { number: 51, name: "장진혁", position: "중견수", height: "184cm", weight: "82kg", school: "광주서석초 - 무등중 - 광주일고 - 단국대", transfer: "FA 보상선수 이적 (한화 ➔ kt / 엄상백 FA 보상)" },
+                { number: 52, name: "권동진", position: "유격수", height: "177cm", weight: "75kg", school: "서울모란초 - 강남중 - 세광고 - 원광대", transfer: "이적 없음 (원클럽맨 / 2021 2차 1라운드 지명)" },
+                { number: 53, name: "김민혁", position: "좌익수", height: "181cm", weight: "78kg", school: "서울가동초 - 자양중 - 배재고", transfer: "이적 없음 (원클럽맨 / 2014 2차 6라운드 지명)" },
+                { number: 55, name: "강현우", position: "포수", height: "180cm", weight: "88kg", school: "수원신곡초 - 매향중 - 유신고", transfer: "이적 없음 (원클럽맨 / 2020 2차 1라운드 지명)" },
+                { number: 60, name: "박영현", position: "마무리", height: "183cm", weight: "91kg", school: "부천북초 - 매향중 - 유신고", transfer: "이적 없음 (원클럽맨 / 2022 1차 지명)" }
+            ]
+        };
+
+        let currentTeamKey = 'SSG';
+
+        window.onload = function() {
+            sortAllRosters();
+            renderTeamTabs();
+            selectTeam('SSG');
+        };
+
+        function sortAllRosters() {
+            Object.keys(rosters).forEach(key => {
+                rosters[key].sort((a, b) => a.number - b.number);
+            });
+        }
+
+        function renderTeamTabs() {
+            const tabsContainer = document.getElementById('teamTabs');
+            tabsContainer.innerHTML = '';
+
+            Object.keys(TEAMS).forEach(key => {
+                const team = TEAMS[key];
+                const btn = document.createElement('button');
+                btn.id = `tab-${team.id}`;
+                btn.onclick = () => selectTeam(team.id);
+                
+                const isActive = currentTeamKey === team.id;
+                btn.className = `flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold text-sm transition shadow-sm border ${
+                    isActive
+                        ? 'bg-zinc-950 text-white border-zinc-950 scale-105 z-10'
+                        : 'bg-white text-zinc-600 hover:bg-zinc-100 border-zinc-200'
+                }`;
+
+                btn.innerHTML = `
+                    <span class="w-2.5 h-2.5 rounded-full ${team.accentColor}"></span>
+                    <span>${team.name}</span>
+                `;
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function selectTeam(teamKey) {
+            currentTeamKey = teamKey;
+            const team = TEAMS[teamKey];
+
+            Object.keys(TEAMS).forEach(key => {
+                const tab = document.getElementById(`tab-${key}`);
+                if (key === teamKey) {
+                    tab.className = 'flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold text-sm transition shadow-sm bg-zinc-950 text-white border-zinc-950 scale-105 z-10';
+                } else {
+                    tab.className = 'flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold text-sm transition shadow-sm bg-white text-zinc-600 hover:bg-zinc-100 border-zinc-200';
+                }
+            });
+
+            const banner = document.getElementById('teamBanner');
+            banner.className = `mb-8 rounded-2xl p-6 text-white shadow-lg transition-all duration-300 relative overflow-hidden ${team.headerBgClass}`;
+            document.getElementById('bannerSubtitle').innerText = team.englishName;
+            document.getElementById('bannerTitle').innerText = team.name;
+            document.getElementById('bannerDesc').innerText = team.desc;
+            document.getElementById('playerCount').innerText = `${rosters[teamKey].length}명`;
+
+            renderPlayers();
+        }
+
+        function renderPlayers() {
+            const grid = document.getElementById('playerGrid');
+            const team = TEAMS[currentTeamKey];
+
+            grid.innerHTML = '';
+
+            let playerList = [...rosters[currentTeamKey]];
+            playerList.sort((a, b) => a.number - b.number);
+
+            playerList.forEach(player => {
+                const card = document.createElement('div');
+                card.onclick = () => openModal(player);
+                card.className = `bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer group flex flex-col justify-between ${team.borderHoverClass}`;
+
+                card.innerHTML = `
+                    <div>
+                        <div class="h-24 ${team.headerBgClass} relative p-4 flex justify-between items-start">
+                            <span class="text-xs font-bold text-white/80 uppercase tracking-wider">${team.englishName}</span>
+                            
+                            <div class="w-12 h-12 rounded-xl ${team.badgeBg} text-white font-black text-xl flex items-center justify-center shadow-lg border border-white/30 group-hover:scale-110 transition">
+                                ${player.number}
+                            </div>
+                        </div>
+
+                        <div class="p-4 pt-3 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-black text-zinc-900 group-hover:text-zinc-700 transition">${player.name}</h3>
+                                <span class="text-xs font-extrabold px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200">
+                                    ${player.position}
+                                </span>
+                            </div>
+                            
+                            <div class="text-xs text-zinc-500 space-y-1 pt-1 border-t border-zinc-100">
+                                <p><span class="text-zinc-400 font-medium">체격:</span> ${player.height} / ${player.weight}</p>
+                                <p class="truncate"><span class="text-zinc-400 font-medium">학력:</span> ${player.school}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-2.5 bg-zinc-50 border-t border-zinc-100 text-xs text-zinc-500 font-medium flex items-center justify-between">
+                        <span>상세 프로필 보기</span>
+                        <i class="fa-solid fa-chevron-right text-[10px] text-zinc-400 group-hover:translate-x-1 transition"></i>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(player) {
+            const team = TEAMS[currentTeamKey];
+            const modal = document.getElementById('playerModal');
+            
+            document.getElementById('modalHeader').className = `p-6 text-white relative ${team.headerBgClass}`;
+            
+            const modalBadge = document.getElementById('modalNumberBadge');
+            modalBadge.className = `w-16 h-16 rounded-2xl ${team.badgeBg} text-white font-black text-2xl flex items-center justify-center shadow-lg border border-white/30`;
+            modalBadge.innerText = player.number;
+
+            document.getElementById('modalTeamName').innerText = team.englishName;
+            document.getElementById('modalPlayerName').innerText = player.name;
+            document.getElementById('modalPosition').innerText = player.position;
+
+            document.getElementById('modalPhysical').innerText = `${player.height} / ${player.weight}`;
+            document.getElementById('modalNumberDetail').innerText = `No. ${player.number}`;
+            document.getElementById('modalSchool').innerText = player.school;
+            document.getElementById('modalTransfer').innerText = player.transfer;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('playerModal').classList.add('hidden');
+        }
+
+        function exportToCSV() {
+            let csvContent = "\uFEFF팀,등번호,선수명,포지션,신장,체중,학력,이적조건\n";
+            Object.keys(rosters).forEach(teamKey => {
+                const teamName = TEAMS[teamKey].name;
+                rosters[teamKey].forEach(p => {
+                    csvContent += `"${teamName}",${p.number},"${p.name}","${p.position}","${p.height}","${p.weight}","${p.school}","${p.transfer}"\n`;
+                });
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `KBO_6개구단_상세로스터_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function importFromCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                
+                lines.forEach((line, index) => {
+                    if (index === 0 || !line.trim()) return;
+                    const cols = line.split(',').map(c => c.replace(/"/g, '').trim());
+                    if (cols.length >= 8) {
+                        const [teamName, numStr, name, position, height, weight, school, transfer] = cols;
+                        const number = parseInt(numStr, 10);
+                        
+                        let teamKey = Object.keys(TEAMS).find(k => TEAMS[k].name === teamName || TEAMS[k].englishName === teamName);
+                        if (teamKey && !isNaN(number) && name) {
+                            const existingIndex = rosters[teamKey].findIndex(p => p.number === number);
+                            const playerData = { number, name, position, height, weight, school, transfer };
+                            if (existingIndex >= 0) {
+                                rosters[teamKey][existingIndex] = playerData;
+                            } else {
+                                rosters[teamKey].push(playerData);
+                            }
+                        }
+                    }
+                });
+
+                sortAllRosters();
+                renderPlayers();
+                alert('CSV 데이터가 성공적으로 반영되었습니다.');
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
